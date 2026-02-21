@@ -97,6 +97,8 @@ def extract_page_title(html: str) -> str:
 
 
 def read_tables_from_html(html: str) -> List[pd.DataFrame]:
+    # Strip DOCTYPE so lxml does not try to load external DTD (avoids Errno 2).
+    html = re.sub(r"<!DOCTYPE[^>]*>", "", html, count=1, flags=re.IGNORECASE | re.DOTALL)
     # read_html can sometimes return empty list if tables not found.
     dfs = pd.read_html(html)
     cleaned = []
@@ -212,6 +214,8 @@ def build_default_specs() -> List[QuerySpec]:
 
 
 def main(player_id: int, out_dir: str, sleep_s: float) -> None:
+    out_dir = os.path.abspath(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     session = requests.Session()
 
     specs = build_default_specs()
