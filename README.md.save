@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+B<<<<<<< HEAD
 # stats100 — Cricket data scraping & statistics
 
 Scrape ESPNcricinfo Statsguru player tables (batting, bowling, fielding, dismissal summaries, etc.) and save to CSV + Excel. Later: graphs and statistics.
@@ -37,3 +37,7 @@ Output: one CSV per table and a single Excel workbook `player_<id>_cricinfo_tabl
 =======
 # stats100_
 >>>>>>> c972a99f9ac3856084127b5f484b5db09ae8899d
+B
+^X
+
+

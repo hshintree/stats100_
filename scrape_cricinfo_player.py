@@ -58,19 +58,19 @@ class QuerySpec:
 
 
 def make_url(player_id: int, spec: QuerySpec) -> str:
-    params = {
-        "template": "results",
-        "type": spec.type,
-    }
-    if spec.view:
-        params["view"] = spec.view
+    # ESPN Statsguru expects class first when present (e.g. class=3;template=results;type=fielding;view=...).
+    params: List[Tuple[str, str]] = []
     if spec.cls is not None:
-        params["class"] = str(spec.cls)
+        params.append(("class", str(spec.cls)))
+    params.append(("template", "results"))
+    params.append(("type", spec.type))
+    if spec.view:
+        params.append(("view", spec.view))
     if spec.extra_params:
-        params.update(spec.extra_params)
+        params.extend(spec.extra_params.items())
 
     # Statsguru uses semicolon-separated query params.
-    qp = ";".join([f"{k}={v}" for k, v in params.items()])
+    qp = ";".join([f"{k}={v}" for k, v in params])
     return BASE.format(player_id=player_id) + "?" + qp
 
 
