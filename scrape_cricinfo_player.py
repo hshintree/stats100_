@@ -97,15 +97,19 @@ def extract_page_title(html: str) -> str:
 
 
 def read_tables_from_html(html: str) -> List[pd.DataFrame]:
-    # Strip DOCTYPE so lxml does not try to load external DTD (avoids Errno 2).
-    html = re.sub(r"<!DOCTYPE[^>]*>", "", html, count=1, flags=re.IGNORECASE | re.DOTALL)
-    # read_html can sometimes return empty list if tables not found.
-    dfs = pd.read_html(html)
+    # Extract <table> fragments with BeautifulSoup (html.parser); parse each with pandas.
+    # This avoids lxml loading the full-page DOCTYPE/DTD and raising Errno 2.
+    soup = BeautifulSoup(html, "html.parser")
+    dfs = []
+    for table in soup.find_all("table"):
+        try:
+            dfs.append(pd.read_html(str(table))[0])
+        except (IndexError, ValueError, Exception):
+            continue
     cleaned = []
     for df in dfs:
-        # Drop completely empty columns
+        # Drop completely empty columns/rows so we don't save navigation/layout tables
         df = df.dropna(axis=1, how="all")
-        # Drop completely empty rows
         df = df.dropna(axis=0, how="all")
         if df.shape[0] == 0 or df.shape[1] == 0:
             continue
