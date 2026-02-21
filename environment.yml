@@ -1,0 +1,14 @@
+name: stats100
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.9
+  - pip
+  - pip:
+    - requests
+    - pandas
+    - lxml
+    - beautifulsoup4
+    - openpyxl
+    - tqdm
