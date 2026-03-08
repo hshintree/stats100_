@@ -48,6 +48,20 @@ Stats are cached in `markov_cache/batting_stats.json` after the first run (when 
 
 **Output:** Expected runs for India and New Zealand, and **P(India wins)**.
 
+## 3. Plots and figures
+
+Generate histograms and per-player comparison plots:
+
+```bash
+python generate_plots.py --career --sims 5000 --outdir plots
+```
+
+- **`plots/simulated_team_totals.png`** — Distribution of simulated innings totals for India and NZ, with average expected total for each team.
+- **`plots/actual_vs_predicted_runs_per_ball.png`** — For each player, career **actual** runs per ball (from ESPNcricinfo) vs **model-predicted** runs per ball from the Markov probabilities; shows how well the model matches observed rates.
+- **`plots/win_probability_and_totals.png`** — Overlaid density of India and NZ totals and P(India wins).
+
+Requires `matplotlib` (in `requirements.txt` / `environment.yml`). Use `--sims` to control simulation count for the distribution plots.
+
 ## If you get blocked (403 / bot protection)
 
 - **Option A:** `pip install cloudscraper` and use `cloudscraper.create_scraper()` instead of `requests.Session()`.

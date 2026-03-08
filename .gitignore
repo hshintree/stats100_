@@ -12,6 +12,7 @@ cricinfo_out/
 data_*/
 *.xlsx
 markov_cache/
+plots/
 
 # Python
 __pycache__/

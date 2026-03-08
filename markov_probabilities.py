@@ -62,6 +62,16 @@ def stats_to_probabilities(stats: Dict[str, float]) -> Dict[str, float]:
     return probs
 
 
+def expected_runs_per_ball(probs: Dict[str, float]) -> float:
+    """Expected runs per ball from outcome probabilities (excludes wicket)."""
+    return (
+        probs.get("1", 0) * 1
+        + probs.get("2", 0) * 2
+        + probs.get("4", 0) * 4
+        + probs.get("6", 0) * 6
+    )
+
+
 def _default_probabilities() -> Dict[str, float]:
     """Fallback for missing stats (e.g. tail-ender): low run rate, moderate out rate."""
     return {

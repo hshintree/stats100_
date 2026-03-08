@@ -13,3 +13,4 @@ dependencies:
     - html5lib
     - openpyxl
     - tqdm
+    - matplotlib
