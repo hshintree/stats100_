@@ -52,7 +52,9 @@ def _parse_number(val: Any) -> float:
 def parse_career_averages_from_html(html: str) -> Optional[Dict[str, float]]:
     """
     Find the 'Career averages' table in the Statsguru batting page and extract the first data row.
-    Column order: (empty/Span), Mat, Inns, NO, Runs, HS, Ave, BF, SR, 100, 50, 0, 4s, 6s, (Profile link).
+    Parses column indices dynamically from the header row so it handles both layouts:
+      - With Span:    [label, Span, Mat, Inns, NO, Runs, HS, Ave, BF, SR, 100, 50, 0, 4s, 6s]
+      - Without Span: [label, Mat,  Inns, NO, Runs, HS, Ave, BF, SR, 100, 50, 0, 4s, 6s]
     Returns dict with keys: runs, bf, fours, sixes, inns, no, dismissals.
     """
     soup = BeautifulSoup(html, "html.parser")
@@ -64,21 +66,45 @@ def parse_career_averages_from_html(html: str) -> Optional[Dict[str, float]]:
         tbody = table.find("tbody")
         if not tbody:
             continue
+        # Build column-name → index map from the header row
+        col_idx: Dict[str, int] = {}
+        if thead:
+            hdr_cells = thead.find_all(["th", "td"])
+            for i, cell in enumerate(hdr_cells):
+                key = _normalize_col(cell.get_text())
+                col_idx[key] = i
         rows = tbody.find_all("tr", class_="data1")
         if not rows:
             rows = tbody.find_all("tr")
         for tr in rows:
             cells = tr.find_all("td")
-            if len(cells) < 15:
+            if len(cells) < 10:
                 continue
-            # ESPN Career averages row: 0=label, 1=Span, 2=Mat, 3=Inns, 4=NO, 5=Runs, 6=HS, 7=Ave, 8=BF, 9=SR, 10=100, 11=50, 12=0, 13=4s, 14=6s
             try:
-                inns = _parse_number(cells[3].get_text())
-                no = _parse_number(cells[4].get_text())
-                runs = _parse_number(cells[5].get_text())
-                bf = _parse_number(cells[8].get_text())
-                fours = _parse_number(cells[13].get_text())
-                sixes = _parse_number(cells[14].get_text())
+                if col_idx:
+                    # Header-driven lookup (most reliable)
+                    def _c(name: str) -> float:
+                        idx = col_idx.get(name)
+                        if idx is None:
+                            return 0.0
+                        return _parse_number(cells[idx].get_text()) if idx < len(cells) else 0.0
+                    inns  = _c("inns")
+                    no    = _c("no")
+                    runs  = _c("runs")
+                    bf    = _c("bf")
+                    fours = _c("4s")
+                    sixes = _c("6s")
+                else:
+                    # Fallback: detect layout by checking whether cells[1] looks like a span ("YYYY-YYYY")
+                    import re as _re
+                    has_span = bool(_re.match(r"\d{4}", cells[1].get_text(strip=True))) if len(cells) > 1 else False
+                    offset = 1 if has_span else 0
+                    inns  = _parse_number(cells[2 + offset].get_text())
+                    no    = _parse_number(cells[3 + offset].get_text())
+                    runs  = _parse_number(cells[4 + offset].get_text())
+                    bf    = _parse_number(cells[7 + offset].get_text())
+                    fours = _parse_number(cells[12 + offset].get_text())
+                    sixes = _parse_number(cells[13 + offset].get_text())
             except (IndexError, AttributeError):
                 continue
             if bf <= 0:
@@ -90,7 +116,7 @@ def parse_career_averages_from_html(html: str) -> Optional[Dict[str, float]]:
                 "sixes": sixes,
                 "inns": inns,
                 "no": no,
-                "dismissals": max(0, inns - no),
+                "dismissals": max(0.0, inns - no),
             }
     return None
 
@@ -132,7 +158,8 @@ def fetch_all_lineups(
         out[team] = {}
         for name, pid in players:
             if pid == 0:
-                assert False, f"Unknown ID for {name} in {team}"  # unknown ID: skip player
+                out[team][name] = {}
+                continue
             try:
                 stats = fetch_batting_stats_for_player(
                     session, pid, use_span=use_span, spanmin=spanmin, spanmax=spanmax
