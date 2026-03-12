@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from fetch_batting_stats import fetch_all_lineups, fetch_batting_stats_for_player
 from lineups import INDIA_LINEUP, NEW_ZEALAND_LINEUP, get_team_lineups
 from markov_probabilities import stats_to_probabilities
-from markov_simulate import build_team_probs, simulate_match
+from markov_simulate import build_team_probs, simulate_match, simulate_innings_with_tracking
 
 CACHE_DIR = "markov_cache"
 CACHE_FILE = os.path.join(CACHE_DIR, "batting_stats.json")
@@ -108,6 +108,34 @@ def main() -> None:
     print(f"  India   expected runs (mean): {ind_mean:.1f}")
     print(f"  NZ      expected runs (mean): {nz_mean:.1f}")
     print(f"  P(India wins): {p_india_wins:.2%}")
+
+    # Average runs per dismissal: use a fresh RNG and run many innings so middle/lower order get dismissals too
+    n_innings_tracking = max(n_sims, 20_000)  # run at least 20k innings so we see 4+ wickets often
+    print("\n--- Average runs per dismissal (over all simulated innings) ---")
+    print(f"  (Running {n_innings_tracking} innings per team so middle/lower order get enough dismissals.)")
+    rng_tracking = random.Random(args.seed + 1)
+    for team_name, lineup, probs in [
+        ("India", INDIA_LINEUP, india_probs),
+        ("New Zealand", NEW_ZEALAND_LINEUP, nz_probs),
+    ]:
+        n_batters = len(probs)
+        sum_runs = [0] * n_batters
+        sum_outs = [0] * n_batters
+        for _ in range(n_innings_tracking):
+            _, br, bb, bo = simulate_innings_with_tracking(probs, rng_tracking)
+            for i in range(n_batters):
+                sum_runs[i] += br[i]
+                sum_outs[i] += bo[i]
+        total_dismissals = sum(sum_outs)
+        wkts_per_inn = total_dismissals / n_innings_tracking
+        print(f"\n  {team_name} (n={n_innings_tracking} innings, total dismissals={total_dismissals}, ~{wkts_per_inn:.1f} wkts/innings):")
+        for i, (name, _) in enumerate(lineup):
+            if i >= n_batters:
+                break
+            runs, outs = sum_runs[i], sum_outs[i]
+            avg = runs / outs if outs > 0 else None
+            val = f"{avg:.1f}" if avg is not None else "— (no dismissal)"
+            print(f"    {name:25}  {val}")
     print("\nDone.")
 
 
