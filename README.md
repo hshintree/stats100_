@@ -1,6 +1,6 @@
 # stats100 — Cricket data scraping & statistics
 
-Scrape ESPNcricinfo Statsguru player tables and run a **Markov chain** T20 simulation (India vs New Zealand) to estimate expected runs and P(India wins).
+Scrape ESPNcricinfo Statsguru player tables and run a **Markov chain** T20 simulation for multiple matchups (India vs New Zealand, Argentina vs Suriname, Sri Lanka vs Afghanistan) to estimate expected runs and win probabilities.
 
 ## Setup (Conda)
 
@@ -29,38 +29,56 @@ python scrape_cricinfo_player.py --player_id 625371 --out_dir data_625371
 
 Output: one CSV per table and a single Excel workbook `player_<id>_cricinfo_tables.xlsx` in the output directory.
 
-## 2. Markov chain simulation (India vs New Zealand)
+## 2. Markov chain simulation
 
-The simulation uses the **India vs New Zealand** playing XIs (batting order from your lineup). For each batter it fetches T20I batting stats from [ESPNcricinfo Statsguru](https://stats.espncricinfo.com/ci/engine/player/446507.html?class=3;spanmax1=31+Dec+2026;spanmin1=01+Jan+2026;spanval1=span;template=results;type=batting) and converts them into **per-ball outcome probabilities**: P(4), P(6), P(out), P(1), P(2), P(0). Those drive a Markov chain: each ball is sampled from the current striker’s distribution; on 1/2/3 runs strike rotates; on a wicket the next batter in the order comes in. We simulate full T20 innings (120 balls, 10 wickets) for each team and then compare totals to estimate **P(India wins)**.
+The simulation uses playing XIs (batting order in `lineups.py`) and fetches T20I batting stats from [ESPNcricinfo Statsguru](https://stats.espncricinfo.com/ci/engine/player/446507.html?class=3;template=results;type=batting). You can use **career** T20I averages or **last 9 months** (or any `--span N` months). Stats are converted into per-ball outcome probabilities P(0), P(1), P(2), P(4), P(6), P(out); those drive the chain (strike rotation on 1/2/3, next batter on wicket). We simulate full T20 innings (120 balls, 10 wickets) per team and compare totals for win probability.
 
-**Run:**
+**Run (India vs New Zealand only):**
 
 ```bash
 python run_markov_simulation.py --career --sims 10000 --seed 42
 ```
 
-- **`--career`** — Use career T20I stats (default). Omit and use `--span N` for last N months.
-- **`--span N`** — Use stats from last N months (e.g. `--span 9`).
-- **`--sims`** — Number of match simulations (default 10000).
+- **`--career`** — Use career T20I stats (default). Otherwise use **`--span N`** for last N months (e.g. `--span 9`).
+- **`--sims`** — Number of match simulations.
 - **`--seed`** — Random seed.
 
-Stats are cached in `markov_cache/batting_stats.json` after the first run (when using `--career`).
+Stats are cached in `markov_cache/batting_stats.json` per team.
 
-**Output:** Expected runs for India and New Zealand, and **P(India wins)**.
+**Output:** Expected runs for each team and P(team1 wins).
 
-## 3. Plots and figures
+## 3. Matchups and plots
 
-Generate histograms and per-player comparison plots:
+**Matchups** (defined in `lineups.py`): **India vs New Zealand**, **Argentina vs Suriname**, **Sri Lanka vs Afghanistan**. Lineups use ESPNcricinfo player IDs; unknown IDs use default probabilities.
+
+**Generate plots** (optionally for one matchup or all):
 
 ```bash
-python generate_plots.py --career --sims 5000 --outdir plots
+# One matchup, career data
+python generate_plots.py --matchup "India vs New Zealand" --career --sims 5000 --outdir plots
+
+# Last 9 months for a matchup
+python generate_plots.py --matchup "Sri Lanka vs Afghanistan" --span 9 --sims 5000 --outdir plots
+
+# All three matchups, career data
+python generate_plots.py --all --career --sims 5000 --outdir plots
 ```
 
-- **`plots/simulated_team_totals.png`** — Distribution of simulated innings totals for India and NZ, with average expected total for each team.
-- **`plots/actual_vs_predicted_runs_per_ball.png`** — For each player, career **actual** runs per ball (from ESPNcricinfo) vs **model-predicted** runs per ball from the Markov probabilities; shows how well the model matches observed rates.
-- **`plots/win_probability_and_totals.png`** — Overlaid density of India and NZ totals and P(India wins).
+- **`--matchup "X vs Y"`** — Run only that matchup (default: India vs New Zealand).
+- **`--all`** — Run India vs NZ, Argentina vs Suriname, Sri Lanka vs Afghanistan.
+- **`--career`** — Career T20I averages. **`--span N`** — Last N months (e.g. 9).
+- **`--sims`** — Simulations per matchup.
+- **`--outdir`** — Output directory (default `plots`).
 
-Requires `matplotlib` (in `requirements.txt` / `environment.yml`). Use `--sims` to control simulation count for the distribution plots.
+**Output files** (per matchup, with slugged names e.g. `india_vs_new_zealand_*`):
+
+- **`*_simulated_team_totals.png`** — Histograms of simulated innings totals and average expected total for each team.
+- **`*_actual_vs_predicted.png`** — Per player: actual runs/ball (from stats) vs model-predicted runs/ball.
+- **`*_win_probability_and_totals.png`** — Density of both teams’ totals and P(team1 wins).
+- **`*_probability_table.png`** — **Table of probabilities**: each player (both teams) × P(0), P(1), P(2), P(4), P(6), P(out).
+- **`*_transition_matrix_<team>.png`** — **Markov transition matrix** (11×11): P(next striker = j | current striker = i) for that team’s batting order.
+
+Requires `matplotlib`. Data source (career vs 9-month) is printed when the script runs.
 
 ## If you get blocked (403 / bot protection)
 

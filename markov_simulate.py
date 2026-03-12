@@ -11,10 +11,33 @@ from __future__ import annotations
 import random
 from typing import Dict, List, Optional, Set, Tuple
 
+import numpy as np
+
 from markov_probabilities import OUTCOMES, stats_to_probabilities
 
 MAX_BALLS = 120
 MAX_WICKETS = 10
+
+
+def build_transition_matrix(batter_probs: List[Dict[str, float]]) -> np.ndarray:
+    """
+    Build 11x11 transition matrix: M[i][j] = P(next striker = j | current striker = i).
+    Assumes batting order 0,1,...,10 and partner when i is on strike:
+    - striker 0 has partner 1; striker 1 has partner 0; striker k (k>=2) has partner k-1.
+    """
+    n = min(11, len(batter_probs))
+    M = np.zeros((11, 11))
+    for i in range(n):
+        p = batter_probs[i]
+        stay = p.get("0", 0) + p.get("4", 0) + p.get("6", 0)
+        rotate = p.get("1", 0) + p.get("2", 0)
+        out = p.get("out", 0)
+        partner = 1 if i == 0 else (0 if i == 1 else i - 1)
+        next_batter = 2 if i <= 1 else min(i + 1, 10)
+        M[i, i] = stay
+        M[i, partner] = M[i, partner] + rotate
+        M[i, next_batter] = M[i, next_batter] + out
+    return M
 
 
 def sample_outcome(probs: Dict[str, float], rng: random.Random) -> str:

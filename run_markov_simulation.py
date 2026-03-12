@@ -13,56 +13,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import random
-from datetime import datetime, timedelta
 
-from fetch_batting_stats import fetch_all_lineups, fetch_batting_stats_for_player
-from lineups import INDIA_LINEUP, NEW_ZEALAND_LINEUP, get_team_lineups
-from markov_probabilities import stats_to_probabilities
+from lineups import INDIA_LINEUP, NEW_ZEALAND_LINEUP
+
+from generate_plots import load_or_fetch_stats
 from markov_simulate import build_team_probs, simulate_match, simulate_innings_with_tracking
-
-CACHE_DIR = "markov_cache"
-CACHE_FILE = os.path.join(CACHE_DIR, "batting_stats.json")
-
-
-def _span_dates(last_n_months: int) -> tuple[str, str]:
-    end = datetime.now()
-    start = end - timedelta(days=last_n_months * 30)
-    spanmin = start.strftime("%d+%b+%Y").replace(" 0", " ").replace("+0", "+")
-    spanmax = end.strftime("%d+%b+%Y").replace(" 0", " ").replace("+0", "+")
-    return spanmin, spanmax
-
-
-def load_or_fetch_stats(use_career: bool, last_n_months: int) -> dict:
-    lineups = get_team_lineups()
-    if use_career and os.path.isfile(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                cached = json.load(f)
-                if cached:
-                    return cached
-        except Exception:
-            pass
-    if use_career:
-        stats = fetch_all_lineups(lineups, use_span=False)
-    else:
-        spanmin, spanmax = _span_dates(last_n_months)
-        stats = fetch_all_lineups(lineups, use_span=True, spanmin=spanmin, spanmax=spanmax)
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    # JSON-serialise: convert to plain dict with float values
-    out = {}
-    for team, players in stats.items():
-        out[team] = {}
-        for name, data in players.items():
-            if "_error" in data:
-                out[team][name] = {"_error": data["_error"]}
-            else:
-                out[team][name] = {k: float(v) for k, v in data.items()}
-    with open(CACHE_FILE, "w", encoding="utf-8") as f:
-        json.dump(out, f, indent=2)
-    return out
 
 
 def main() -> None:
@@ -79,7 +35,11 @@ def main() -> None:
     print("  New Zealand:", [n for n, _ in NEW_ZEALAND_LINEUP])
 
     print("\nFetching T20I batting stats from ESPNcricinfo...")
-    stats = load_or_fetch_stats(use_career=use_career, last_n_months=args.span)
+    stats = load_or_fetch_stats(
+        use_career=use_career,
+        last_n_months=args.span,
+        teams_needed=["India", "New Zealand"],
+    )
     for team, players in stats.items():
         ok = sum(1 for p in players.values() if p and "_error" not in p)
         print(f"  {team}: {ok}/{len(players)} players with stats")

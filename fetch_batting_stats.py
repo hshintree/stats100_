@@ -131,6 +131,8 @@ def fetch_all_lineups(
     for team, players in lineups.items():
         out[team] = {}
         for name, pid in players:
+            if pid == 0:
+                assert False, f"Unknown ID for {name} in {team}"  # unknown ID: skip player
             try:
                 stats = fetch_batting_stats_for_player(
                     session, pid, use_span=use_span, spanmin=spanmin, spanmax=spanmax
@@ -138,7 +140,7 @@ def fetch_all_lineups(
                 if stats:
                     out[team][name] = stats
                 else:
-                    out[team][name] = {}  # no data
+                    out[team][name] = {}
             except Exception as e:
                 out[team][name] = {"_error": str(e)}
     return out
